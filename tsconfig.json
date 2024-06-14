@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2016",
+    "sourceMap": true,
+    "outFile": "dist/main.js"
+  },
+  "types": ["jquery"],
+  "include": ["src/*.ts", "src/player/*.ts", "src/GUI/*.ts"]
+}
