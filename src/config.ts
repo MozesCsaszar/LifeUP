@@ -43,8 +43,9 @@ class Config {
     "Production",
     "Construction",
   ];
+  static readonly Resources: string[] = ["Stone", "Wood", "Berries"];
 
-  static readonly LogicToGUIEvents: string[] = ["ActionQueueChanged"];
+  static readonly LogicToGUIEvents: string[] = ["ActionQueueChanged", "InventoryChanged"];
 
   static readonly PlayerResourceNames: string[] = ["Health", "Stamina", "Mana"];
 

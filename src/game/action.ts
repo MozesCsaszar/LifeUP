@@ -1,14 +1,38 @@
 namespace Action {
+  interface IOutcome {
+    Resolve(): void;
+  }
+  export class AddToInventory implements IOutcome {
+    resourceName: string;
+    quantity: number;
+    constructor(resourceName: string, quantity: number = 1) {
+      this.resourceName = resourceName;
+      this.quantity = quantity;
+    }
+
+    Resolve(): void {
+      Game.player.inventory.AddItem(this.resourceName, this.quantity);
+    }
+  }
   export class Action {
     cost: number;
     name: string;
     skill: string;
     metaskill: string;
     fixedMetaskill: boolean;
-    constructor(name: string, skill: string, cost: number, metaskill = "unaided", fixedMetaskill = false) {
+    outcome: IOutcome;
+    constructor(
+      name: string,
+      skill: string,
+      cost: number,
+      outcome: IOutcome,
+      metaskill = "unaided",
+      fixedMetaskill = false
+    ) {
       this.cost = cost;
       this.skill = skill;
       this.name = name;
+      this.outcome = outcome;
       this.metaskill = metaskill;
       this.fixedMetaskill = fixedMetaskill;
     }
@@ -38,14 +62,18 @@ namespace Action {
         player.skills.get(this.action.skill).UpdateExperience(progressSpent);
         if (this.cost <= 0) {
           this.nrExecutions -= 1;
+          this.action.outcome.Resolve();
+          if (this.nrExecutions > 0) {
+            this.cost = this.action.cost;
+          }
         }
       }
       return (progressLeft / progress) * dTime;
     }
   }
   export let actions = new Map<string, Action>([
-    ["Cut wood", new Action("Cut wood", "Extraction", 10)],
-    ["Dig stone", new Action("Dig stone", "Extraction", 12)],
-    ["Pick berries", new Action("Pick berries", "Production", 3)],
+    ["Cut wood", new Action("Cut wood", "Extraction", 1, new AddToInventory("Wood"))],
+    ["Dig stone", new Action("Dig stone", "Extraction", 2, new AddToInventory("Stone"))],
+    ["Pick berries", new Action("Pick berries", "Production", 3, new AddToInventory("Berries"))],
   ]);
 }

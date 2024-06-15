@@ -10,7 +10,7 @@ class Main {
   eventSystem: EventSystem;
   time: number;
   get player() {
-    return this.game.player;
+    return Game.player;
   }
   constructor() {
     if (Main.instance == undefined) {

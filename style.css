@@ -102,6 +102,13 @@ td :last-child {
   max-height: 5%;
 }
 
+#Inventory {
+  flex: 0 0 30%;
+}
+#Inventory > .list-item {
+  max-height: 5%;
+}
+
 .skill-container {
   margin: 1px;
 }

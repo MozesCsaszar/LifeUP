@@ -60,7 +60,8 @@ Config.SkillNames = [
     "Production",
     "Construction",
 ];
-Config.LogicToGUIEvents = ["ActionQueueChanged"];
+Config.Resources = ["Stone", "Wood", "Berries"];
+Config.LogicToGUIEvents = ["ActionQueueChanged", "InventoryChanged"];
 Config.PlayerResourceNames = ["Health", "Stamina", "Mana"];
 var Skill;
 (function (Skill_1) {
@@ -119,7 +120,47 @@ var Skill;
     }
     Skill_1.Skill = Skill;
 })(Skill || (Skill = {}));
+class Inventory {
+    constructor() {
+        this.inventory = new Map();
+        this.inventoryLimit = 10;
+        Config.Resources.forEach((resourceName) => {
+            this.inventory.set(resourceName, 0);
+        });
+    }
+    AddItem(key, value = 1) {
+        let newValue = this.inventory.get(key) + value;
+        if (newValue > this.inventoryLimit) {
+            newValue = this.inventoryLimit;
+        }
+        this.inventory.set(key, newValue);
+        Main.instance.eventSystem.TriggerEvent("InventoryChanged");
+    }
+    SpaceLeft(key) {
+        return this.inventoryLimit - this.inventory.get(key);
+    }
+    CanRemoveItem(key, value = 1) {
+        let newValue = this.inventory.get(key) - value;
+        return newValue > 0;
+    }
+    RemoveItem(key, value = 1) {
+        if (this.CanRemoveItem(key, value)) {
+            this.inventory.set(key, this.inventory.get(key) - value);
+            Main.instance.eventSystem.TriggerEvent("InventoryChanged");
+        }
+    }
+    GetNonzeroItemData() {
+        let toReturn = [];
+        this.inventory.forEach((value, key) => {
+            if (value != 0) {
+                toReturn.push([key, value]);
+            }
+        });
+        return toReturn;
+    }
+}
 /// <reference path="./skill.ts" />
+/// <reference path="./inventory.ts" />
 class BoundedVar {
     constructor(val, max, min) {
         this._val = val;
@@ -175,6 +216,7 @@ class Player {
             this.skills.set(skillName, new Skill.Skill(skillName));
         });
         this.resources = new PlayerResources();
+        this.inventory = new Inventory();
     }
     Update(dTime) { }
 }
@@ -182,19 +224,30 @@ class Game {
     get paused() {
         return this.actionQueue.length == 0;
     }
+    static get player() {
+        return this.instance._player;
+    }
     constructor() {
         this.actionQueue = [];
         if (Game.instance == undefined) {
             Game.instance = this;
-            this.player = new Player();
+            this._player = new Player();
         }
     }
+    GetNrExecutions(action) {
+        let nrExecutions = 1;
+        if (action.outcome instanceof Action.AddToInventory) {
+            let resourceName = action.outcome.resourceName;
+            nrExecutions = Game.player.inventory.SpaceLeft(resourceName);
+        }
+        return nrExecutions;
+    }
     AddActionToBack(action) {
-        this.actionQueue.push(new Action.ActionInstance(action));
+        this.actionQueue.push(new Action.ActionInstance(action, this.GetNrExecutions(action)));
         Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
     }
     AddActionToFront(action) {
-        this.actionQueue.unshift(new Action.ActionInstance(action));
+        this.actionQueue.unshift(new Action.ActionInstance(action, this.GetNrExecutions(action)));
         Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
     }
     RemoveAction(index) {
@@ -214,12 +267,12 @@ class Game {
     Update(dTime) {
         if (!this.paused) {
             this.PrintQueue();
-            this.player.Update(dTime);
+            this._player.Update(dTime);
             // do actions while you still have time left
-            let timeLeft = this.actionQueue[0].Update(dTime, this.player);
+            let timeLeft = this.actionQueue[0].Update(dTime, this._player);
             this.RemoveFirstIfDone();
             while (timeLeft > 0 && !this.paused) {
-                timeLeft = this.actionQueue[0].Update(dTime, this.player);
+                timeLeft = this.actionQueue[0].Update(dTime, this._player);
                 this.RemoveFirstIfDone();
             }
         }
@@ -670,13 +723,58 @@ var ActionsGUI;
     ActionQueueGUI.ElementID = "ActionQueue";
     ActionsGUI.ActionQueueGUI = ActionQueueGUI;
 })(ActionsGUI || (ActionsGUI = {}));
+var InventoryGUI;
+(function (InventoryGUI_1) {
+    class ActionQueueItemBase extends CommonGUIBases.TooltipListItem {
+        constructor(parent, index) {
+            super(new CommonGUIBases.ListItem(parent));
+            this.nameLabel = new CommonGUIs.Label(this.baseElement);
+            this.quantityLabel = new CommonGUIs.Label(this.baseElement);
+        }
+        SetUp(element) {
+            this.item = element;
+            this.nameLabel.Update(element[0]);
+            this.quantityLabel.Update(`${element[1]}/${Game.player.inventory.inventoryLimit}`);
+        }
+        Update() { }
+    }
+    ActionQueueItemBase.ElementClass = "inventory-item";
+    class InventoryGUI extends CommonGUIBases.List {
+        constructor(parent) {
+            super(parent, "", InventoryGUI.ElementID);
+            this.listItems = Array.from({ length: 10 }, (_, i) => i).map((_, i) => new ActionQueueItemBase(this._baseElement, i));
+        }
+        SetUp(actions) {
+            super.SetUp(actions);
+        }
+        Update() {
+            super.Update();
+            if (Main.instance.eventSystem.EventHappened("InventoryChanged")) {
+                this.SetUp(Game.player.inventory.GetNonzeroItemData());
+            }
+        }
+    }
+    InventoryGUI.ElementID = "Inventory";
+    InventoryGUI_1.InventoryGUI = InventoryGUI;
+})(InventoryGUI || (InventoryGUI = {}));
 var Action;
 (function (Action_1) {
+    class AddToInventory {
+        constructor(resourceName, quantity = 1) {
+            this.resourceName = resourceName;
+            this.quantity = quantity;
+        }
+        Resolve() {
+            Game.player.inventory.AddItem(this.resourceName, this.quantity);
+        }
+    }
+    Action_1.AddToInventory = AddToInventory;
     class Action {
-        constructor(name, skill, cost, metaskill = "unaided", fixedMetaskill = false) {
+        constructor(name, skill, cost, outcome, metaskill = "unaided", fixedMetaskill = false) {
             this.cost = cost;
             this.skill = skill;
             this.name = name;
+            this.outcome = outcome;
             this.metaskill = metaskill;
             this.fixedMetaskill = fixedMetaskill;
         }
@@ -704,6 +802,10 @@ var Action;
                 player.skills.get(this.action.skill).UpdateExperience(progressSpent);
                 if (this.cost <= 0) {
                     this.nrExecutions -= 1;
+                    this.action.outcome.Resolve();
+                    if (this.nrExecutions > 0) {
+                        this.cost = this.action.cost;
+                    }
                 }
             }
             return (progressLeft / progress) * dTime;
@@ -711,25 +813,29 @@ var Action;
     }
     Action_1.ActionInstance = ActionInstance;
     Action_1.actions = new Map([
-        ["Cut wood", new Action("Cut wood", "Extraction", 10)],
-        ["Dig stone", new Action("Dig stone", "Extraction", 12)],
-        ["Pick berries", new Action("Pick berries", "Production", 3)],
+        ["Cut wood", new Action("Cut wood", "Extraction", 1, new AddToInventory("Wood"))],
+        ["Dig stone", new Action("Dig stone", "Extraction", 2, new AddToInventory("Stone"))],
+        ["Pick berries", new Action("Pick berries", "Production", 3, new AddToInventory("Berries"))],
     ]);
 })(Action || (Action = {}));
 /// <reference path="./actions.ts" />
+/// <reference path="./inventory.ts" />
 /// <reference path="../game/action.ts" />
 class ActionsBar extends GUIElement {
     constructor(parent) {
         super("", ActionsBar.ElementID, parent);
         this.availableActions = new ActionsGUI.AvailableActionsGUI(this.baseElement);
+        this.inventory = new InventoryGUI.InventoryGUI(this.baseElement);
         this.actionQueue = new ActionsGUI.ActionQueueGUI(this.baseElement);
     }
     SetUp() {
         this.availableActions.SetUp(Array.from(Action.actions.values()));
+        this.inventory.SetUp(Game.player.inventory.GetNonzeroItemData());
         this.actionQueue.SetUp(Game.instance.actionQueue);
     }
     Update() {
         this.availableActions.Update();
+        this.inventory.Update();
         this.actionQueue.Update();
     }
 }
@@ -944,7 +1050,7 @@ GUI.ElementID = "GUI";
 /// <reference path="./GUI/GUI.ts" />
 class Main {
     get player() {
-        return this.game.player;
+        return Game.player;
     }
     constructor() {
         if (Main.instance == undefined) {

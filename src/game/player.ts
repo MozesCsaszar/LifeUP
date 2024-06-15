@@ -1,4 +1,5 @@
 /// <reference path="./skill.ts" />
+/// <reference path="./inventory.ts" />
 
 class BoundedVar {
   private _val: number;
@@ -67,12 +68,14 @@ class PlayerResources {
 class Player {
   skills: Map<string, Skill.Skill> = new Map<string, Skill.Skill>();
   resources: PlayerResources;
+  inventory: Inventory;
 
   constructor() {
     Config.SkillNames.forEach((skillName) => {
       this.skills.set(skillName, new Skill.Skill(skillName));
     });
     this.resources = new PlayerResources();
+    this.inventory = new Inventory();
   }
 
   Update(dTime: number) {}
