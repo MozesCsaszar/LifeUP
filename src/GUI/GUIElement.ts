@@ -8,27 +8,32 @@ GUIElement Lifecycle:
 */
 
 class GUIElement {
-  baseElement: JQuery<HTMLElement>;
-
+  protected _baseElement: JQuery<HTMLElement>;
+  constructor(classes?: string, id?: string, parent?: JQuery<HTMLElement>, center?: boolean);
   constructor(classes: string, id: string, parent: JQuery<HTMLElement>, center: boolean = false) {
-    this.baseElement = this.CreateObject(center ? `${classes} center-text` : classes, id, parent);
+    if (parent != undefined)
+      this._baseElement = this.CreateObject(center ? `${classes} center-text` : classes, id, parent);
   }
 
   protected CreateObject(classes: string, id: string, parent: JQuery<HTMLElement>): JQuery<HTMLElement> {
     return $(`<div class='${classes}' id='${id}'>`).appendTo(parent);
   }
 
+  get baseElement() {
+    return this._baseElement;
+  }
+
   CanUpdate(): boolean {
-    if (this.baseElement.is(":hidden")) {
+    if (this._baseElement.is(":hidden")) {
       return false;
     }
     return true;
   }
 
   Show() {
-    this.baseElement.show();
+    this._baseElement.show();
   }
   Hide() {
-    this.baseElement.hide();
+    this._baseElement.hide();
   }
 }

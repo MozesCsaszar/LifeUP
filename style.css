@@ -73,16 +73,37 @@ td :last-child {
 
 #InfoBar {
   flex-direction: column;
-  flex: 0 0 20%;
+  flex: 0 0 15%;
+}
+#ActionsBar {
+  height: 70%;
+}
+
+#AvailableActions {
+  flex: 0 0 30%;
+}
+#AvailableActions > .list-item {
+  max-height: 5%;
+}
+#AvailableActions > .list-item > .label {
+  flex: 1 1 70%;
+}
+#AvailableActions .add-first-button {
+  flex: 1 1 15%;
+}
+#AvailableActions .add-last-button {
+  flex: 1 1 15%;
 }
 
 .skill-container {
-  height: 30%;
   margin: 1px;
+}
+.skill-container > .horizontal-box {
+  flex: 0 0 50%;
 }
 .skill-container > .progress-line {
   flex-direction: column;
-  flex: 1 0 10%;
+  flex: 0 0 10%;
   width: 97%;
   border: 1px solid black;
   margin-left: 1%;

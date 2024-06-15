@@ -1,16 +1,19 @@
 /// <reference path="./GUIElement.ts" />
-/// <reference path="./InfoBar.ts" />
 /// <reference path="./tooltip.ts" />
+/// <reference path="./actionsBar.ts" />
+/// <reference path="./infoBar.ts" />
 
 class GUI extends GUIElement {
   static instance: GUI = undefined;
   static ElementID: string = "GUI";
-  infoBar: InfoBar.InfoBar;
+  infoBar: InfoBar;
+  actionsBar: ActionsBar;
   constructor() {
     super("", "GUI", $(document.body));
     if (GUI.instance == undefined) {
       GUI.instance = this;
-      this.infoBar = new InfoBar.InfoBar(this.baseElement);
+      this.infoBar = new InfoBar(this.baseElement);
+      this.actionsBar = new ActionsBar(this.baseElement);
 
       new Tooltip(this.baseElement);
     }
@@ -18,10 +21,12 @@ class GUI extends GUIElement {
 
   SetUp(player: Player) {
     this.infoBar.SetUp(player);
+    this.actionsBar.SetUp();
   }
 
   Update(player: Player) {
     this.infoBar.Update(player);
+    this.actionsBar.Update();
 
     Tooltip.instance.Update();
   }

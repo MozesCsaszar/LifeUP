@@ -75,7 +75,5 @@ class Player {
     this.resources = new PlayerResources();
   }
 
-  Update(experience: number) {
-    this.skills.forEach((skill) => skill.UpdateExperience(experience));
-  }
+  Update(dTime: number) {}
 }

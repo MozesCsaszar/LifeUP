@@ -4,6 +4,6 @@
     "sourceMap": true,
     "outFile": "dist/main.js"
   },
-  "types": ["jquery"],
-  "include": ["src/*.ts", "src/player/*.ts", "src/GUI/*.ts"]
+  "types": ["jquery", "decimal.js"],
+  "include": ["src/*.ts", "src/game/*.ts", "src/GUI/*.ts"]
 }

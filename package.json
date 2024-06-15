@@ -4,6 +4,8 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@types/decimal.js": "^7.4.0",
+    "decimal.js": "^10.4.3",
     "jquery": "^3.7.1"
   }
 }

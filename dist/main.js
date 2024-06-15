@@ -55,10 +55,9 @@ Config.SkillNames = [
     "Fighting",
     "Navigation",
     "Processing",
-    "Extracting",
-    "Producing",
+    "Extraction",
+    "Production",
     "Construction",
-    "Magical",
 ];
 Config.PlayerResourceNames = ["Health", "Stamina", "Mana"];
 var Skill;
@@ -66,12 +65,13 @@ var Skill;
     class SkillStage {
         constructor(stage) {
             this.level = 0;
+            this.multiplier = 1;
             this.experience = 0;
             this.stage = stage;
             this.required = 10;
         }
         GetSkillMultiplier() {
-            return SkillStage.MultiplierFunction(this.level, SkillStage.MultiplierBaseValues[this.stage]);
+            return this.multiplier;
         }
         UpdateExperience(experience) {
             this.experience += experience;
@@ -84,6 +84,7 @@ var Skill;
                 this.level += 1;
                 this.required = SkillStage.ScalingFunctions[this.stage](this.required, this.level);
                 this.experience -= oldRequired;
+                this.multiplier = SkillStage.MultiplierFunction(this.level, SkillStage.MultiplierBaseValues[this.stage]);
             }
             return 0;
         }
@@ -173,10 +174,52 @@ class Player {
         });
         this.resources = new PlayerResources();
     }
-    Update(experience) {
-        this.skills.forEach((skill) => skill.UpdateExperience(experience));
+    Update(dTime) { }
+}
+class Game {
+    get paused() {
+        return this.actionQueue.length == 0;
+    }
+    constructor() {
+        this.actionQueue = [];
+        if (Game.instance == undefined) {
+            Game.instance = this;
+            this.player = new Player();
+        }
+    }
+    AddActionToBack(action) {
+        this.actionQueue.push(new Action.ActionInstance(action));
+    }
+    AddActionToFront(action) {
+        this.actionQueue.unshift(new Action.ActionInstance(action));
+    }
+    RemoveAction(index) {
+        this.actionQueue.splice(index, 1);
+    }
+    Update(dTime) {
+        if (!this.paused) {
+            this.PrintQueue();
+            this.player.Update(dTime);
+            // do actions while you still have time left
+            let timeLeft = this.actionQueue[0].Update(dTime, this.player);
+            if (this.actionQueue[0].nrExecutions == 0) {
+                this.actionQueue.shift();
+            }
+            while (timeLeft > 0 && !this.paused) {
+                timeLeft = this.actionQueue[0].Update(dTime, this.player);
+                if (this.actionQueue[0].nrExecutions == 0) {
+                    this.actionQueue.shift();
+                }
+            }
+        }
+    }
+    PrintQueue() {
+        console.log(this.actionQueue
+            .map((elem) => elem.nrExecutions + " " + elem.cost + " " + elem.action.name)
+            .reduce((prev, next) => prev + "\n" + next, ""));
     }
 }
+Game.instance = undefined;
 /*
 GUIElement Lifecycle:
   -constructor <- create all components needed and set static style
@@ -187,22 +230,26 @@ GUIElement Lifecycle:
 */
 class GUIElement {
     constructor(classes, id, parent, center = false) {
-        this.baseElement = this.CreateObject(center ? `${classes} center-text` : classes, id, parent);
+        if (parent != undefined)
+            this._baseElement = this.CreateObject(center ? `${classes} center-text` : classes, id, parent);
     }
     CreateObject(classes, id, parent) {
         return $(`<div class='${classes}' id='${id}'>`).appendTo(parent);
     }
+    get baseElement() {
+        return this._baseElement;
+    }
     CanUpdate() {
-        if (this.baseElement.is(":hidden")) {
+        if (this._baseElement.is(":hidden")) {
             return false;
         }
         return true;
     }
     Show() {
-        this.baseElement.show();
+        this._baseElement.show();
     }
     Hide() {
-        this.baseElement.hide();
+        this._baseElement.hide();
     }
 }
 /// <reference path="./GUIElement.ts" />
@@ -275,11 +322,24 @@ var CommonGUIs;
     }
     HorizontalBox.ElementClass = "horizontal-box";
     CommonGUIs.HorizontalBox = HorizontalBox;
+    class Button extends GUIElement {
+        constructor(parent, extraClasses = "", extraID = "", center = true) {
+            super(`${Button.ElementClass} ${extraClasses}`, extraID, parent, center);
+            this.baseElement.on("click", () => this.OnClick());
+        }
+        OnClick() { }
+        Update(content) {
+            this.baseElement.html(content);
+        }
+    }
+    Button.ElementClass = "button";
+    CommonGUIs.Button = Button;
 })(CommonGUIs || (CommonGUIs = {}));
 var CommonGUIBases;
 (function (CommonGUIBases) {
-    class TooltipReadyElement {
+    class TooltipReadyElement extends GUIElement {
         constructor(child) {
+            super();
             this.tooltipWidth = "20%";
             this.child = child;
             this.baseElement.on("mouseenter", () => this.OnMouseEnter());
@@ -312,7 +372,264 @@ var CommonGUIBases;
         }
     }
     CommonGUIBases.TooltipReadyElement = TooltipReadyElement;
+    class ListItem extends GUIElement {
+        constructor(parent, extraClasses = "") {
+            super(`${ListItem.ElementClass} ${extraClasses}`, "", parent);
+        }
+        SetUp(element) {
+            this.item = element;
+        }
+        Update() { }
+    }
+    ListItem.ElementClass = "list-item";
+    CommonGUIBases.ListItem = ListItem;
+    class TooltipListItem extends TooltipReadyElement {
+        constructor(listItem) {
+            super(listItem);
+        }
+        get item() {
+            return this.child.item;
+        }
+        set item(newItem) {
+            this.child.item = newItem;
+        }
+        SetUp(element) {
+            this.child.SetUp(element);
+        }
+        Update() { }
+    }
+    CommonGUIBases.TooltipListItem = TooltipListItem;
+    class List extends CommonGUIs.VerticalBox {
+        constructor(parent, extraClasses = "", extraID = "") {
+            super(parent, `${List.ElementClass} ${extraClasses}`, extraID);
+            this.listItems = [];
+            this.currentPage = 0;
+        }
+        get nrPages() {
+            return (this.listContents.length - 1) / List.NrElementsPerPage + 1;
+        }
+        /**
+         * Set up the list with a new list of contents
+         * @param listContents the list to follow and their content to display
+         */
+        SetUp(listContents) {
+            this.listContents = listContents;
+            this.currentPage = 0;
+            this.Refresh();
+        }
+        /**
+         * Refresh the list with a new page of items;
+         */
+        Refresh() {
+            this.listItems.forEach((element, i) => {
+                let index = this.currentPage * List.NrElementsPerPage + i;
+                if (index < this.listContents.length) {
+                    element.Show();
+                    element.SetUp(this.listContents[index]);
+                }
+                else {
+                    element.Hide();
+                }
+            });
+        }
+        /**
+         * Go to the next page if possible
+         */
+        NextPage() {
+            if (this.currentPage + 1 < this.nrPages) {
+                this.currentPage += 1;
+                this.Refresh();
+            }
+        }
+        /**
+         * Go to the previous page if possible
+         */
+        PreviousPage() {
+            if (this.currentPage - 1 > 0) {
+                this.currentPage -= 1;
+                this.Refresh();
+            }
+        }
+        /**
+         * Update the contents of each element's moving parts
+         */
+        Update() {
+            if (!this.CanUpdate()) {
+                return;
+            }
+            this.listItems.forEach((element) => {
+                element.Update();
+            });
+        }
+    }
+    List.NrElementsPerPage = 15;
+    List.ElementClass = "list";
+    CommonGUIBases.List = List;
 })(CommonGUIBases || (CommonGUIBases = {}));
+/// <reference path="./common.ts" />
+class Tooltip extends CommonGUIs.VerticalBox {
+    constructor(parent) {
+        if (Tooltip.instance == undefined) {
+            super(parent, "", Tooltip.ElementID);
+            this.primaryInformation = new CommonGUIs.TextBox(this.baseElement);
+            this.secondaryInformation = new CommonGUIs.TextBox(this.baseElement);
+            this.Hide();
+            Tooltip.instance = this;
+        }
+    }
+    CalculateTopLeft(tooltipFor) {
+        let objectPos = tooltipFor.offset();
+        let objectWidth = tooltipFor.outerWidth(), objectHeight = tooltipFor.outerHeight();
+        let tooltipWidth = this.baseElement.outerWidth(), tooltipHeight = this.baseElement.outerHeight();
+        objectPos.left += objectWidth / 2 - tooltipWidth / 2;
+        objectPos.top += objectHeight;
+        //adjust left position if tooltip would go out of the screen
+        let bodyWidth = $(document.body).outerWidth(), bodyHeight = $(document.body).outerHeight();
+        if (objectPos.left + tooltipWidth > bodyWidth) {
+            objectPos.left = bodyWidth - tooltipWidth;
+        }
+        else if (objectPos.left < 0) {
+            objectPos.left = 0;
+        }
+        //adjust top position if tooltip would go out of the screen
+        if (objectPos.top > bodyHeight) {
+            objectPos.top -= objectHeight + tooltipHeight;
+        }
+        return objectPos;
+    }
+    SetUp(baseWidth, tooltipFor, getPrimaryInfo, getSecondaryInfo) {
+        this.getPrimaryInfo = getPrimaryInfo;
+        this.getSecondaryInfo = getSecondaryInfo;
+        // initial text and width updates to be able to set the tooltip position
+        this.primaryInformation.Update(this.getPrimaryInfo());
+        this.secondaryInformation.Update(this.getSecondaryInfo());
+        this.baseElement.css("width", baseWidth);
+        this.baseElement.css(this.CalculateTopLeft(tooltipFor));
+    }
+    Update() {
+        if (!this.CanUpdate()) {
+            return;
+        }
+        this.primaryInformation.Update(this.getPrimaryInfo());
+        this.secondaryInformation.Update(this.getSecondaryInfo());
+    }
+}
+Tooltip.ElementID = "Tooltip";
+Tooltip.instance = undefined;
+/// <reference path="./common.ts" />
+var ActionsGUI;
+(function (ActionsGUI) {
+    class AddFirst extends CommonGUIBases.TooltipReadyElement {
+        constructor(parent) {
+            super(new CommonGUIs.Button(parent, AddFirst.ElementClass));
+            this.child.Update("+");
+        }
+        GeneratePrimaryText() {
+            return "Add action to the start of the queue";
+        }
+    }
+    AddFirst.ElementClass = "add-first-button";
+    class AddLast extends CommonGUIBases.TooltipReadyElement {
+        constructor(parent) {
+            super(new CommonGUIs.Button(parent, AddLast.ElementClass));
+            this.child.Update("=>");
+        }
+        GeneratePrimaryText() {
+            return "Add action to the end of the queue";
+        }
+    }
+    AddLast.ElementClass = "add-last-button";
+    class AvailableActionBase extends CommonGUIBases.TooltipListItem {
+        constructor(parent) {
+            super(new CommonGUIBases.ListItem(parent));
+            this.nameLabel = new CommonGUIs.Label(this.baseElement);
+            this.addFirst = new AddFirst(this.baseElement);
+            this.addLast = new AddLast(this.baseElement);
+        }
+        SetUp(element) {
+            this.item = element;
+            this.nameLabel.Update(element.name);
+            this.addFirst.child.OnClick = () => Game.instance.AddActionToFront(this.item);
+            this.addLast.child.OnClick = () => Game.instance.AddActionToBack(this.item);
+        }
+        Update() { }
+    }
+    class AvailableActionsGUI extends CommonGUIBases.List {
+        constructor(parent) {
+            super(parent, "", AvailableActionsGUI.ElementID);
+            this.listItems = Array.from({ length: 10 }, (_, i) => i).map((_) => new AvailableActionBase(this._baseElement));
+        }
+        SetUp(actions) {
+            super.SetUp(actions);
+        }
+        Update() {
+            super.Update();
+        }
+    }
+    AvailableActionsGUI.ElementID = "AvailableActions";
+    ActionsGUI.AvailableActionsGUI = AvailableActionsGUI;
+})(ActionsGUI || (ActionsGUI = {}));
+var Action;
+(function (Action_1) {
+    class Action {
+        constructor(name, skill, cost, metaskill = "unaided", fixedMetaskill = false) {
+            this.cost = cost;
+            this.skill = skill;
+            this.name = name;
+            this.metaskill = metaskill;
+            this.fixedMetaskill = fixedMetaskill;
+        }
+    }
+    Action_1.Action = Action;
+    class ActionInstance {
+        constructor(action, nrExecutions = 1) {
+            this.cost = action.cost;
+            this.action = action;
+            this.nrExecutions = nrExecutions;
+        }
+        /**
+         * Update the current job
+         * @param dTime time between last frame and this one
+         * @param player
+         * @returns Time left over after performing this action to completion
+         */
+        Update(dTime, player) {
+            let progress = player.skills.get(this.action.skill).GetTotalMultiplier() * dTime;
+            let progressLeft = progress;
+            while (progressLeft > 0 && this.nrExecutions > 0) {
+                let progressSpent = Math.min(this.cost, progressLeft);
+                this.cost -= progressSpent;
+                progressLeft -= progressSpent;
+                player.skills.get(this.action.skill).UpdateExperience(progressSpent);
+                if (this.cost <= 0) {
+                    this.nrExecutions -= 1;
+                }
+            }
+            return (progressLeft / progress) * dTime;
+        }
+    }
+    Action_1.ActionInstance = ActionInstance;
+    Action_1.actions = new Map([
+        ["Cut wood", new Action("Cut wood", "Extraction", 10)],
+        ["Dig stone", new Action("Dig stone", "Extraction", 12)],
+        ["Pick berries", new Action("Pick berries", "Production", 3)],
+    ]);
+})(Action || (Action = {}));
+/// <reference path="./actions.ts" />
+/// <reference path="../game/action.ts" />
+class ActionsBar extends GUIElement {
+    constructor(parent) {
+        super("", ActionsBar.ElementID, parent);
+        this.availableActions = new ActionsGUI.AvailableActionsGUI(this.baseElement);
+    }
+    SetUp() {
+        this.availableActions.SetUp(Array.from(Action.actions.values()));
+    }
+    Update() {
+        this.availableActions.Update();
+    }
+}
+ActionsBar.ElementID = "ActionsBar";
 /// <reference path="./common.ts" />
 var PlayerResourcesGUI;
 (function (PlayerResourcesGUI_1) {
@@ -475,105 +792,60 @@ var SkillsGUI;
 /// <reference path="./GUIElement.ts" />
 /// <reference path="./playerResources.ts" />
 /// <reference path="./skills.ts" />
-var InfoBar;
-(function (InfoBar_1) {
-    class InfoBar extends GUIElement {
-        constructor(parent) {
-            super("", InfoBar.ElementID, parent);
-            this.playerResourcesBar = new PlayerResourcesGUI.PlayerResourcesGUI(this.baseElement);
-            this.skillsBar = new SkillsGUI.SkillsGUI(this.baseElement);
-        }
-        SetUp(player) {
-            this.playerResourcesBar.SetUp(player.resources);
-            this.skillsBar.SetUp(player);
-        }
-        Update(player) {
-            this.playerResourcesBar.Update();
-            this.skillsBar.Update(player);
-        }
-    }
-    InfoBar.ElementID = "InfoBar";
-    InfoBar_1.InfoBar = InfoBar;
-})(InfoBar || (InfoBar = {}));
-class Tooltip extends CommonGUIs.VerticalBox {
+class InfoBar extends GUIElement {
     constructor(parent) {
-        if (Tooltip.instance == undefined) {
-            super(parent, "", Tooltip.ElementID);
-            this.primaryInformation = new CommonGUIs.TextBox(this.baseElement);
-            this.secondaryInformation = new CommonGUIs.TextBox(this.baseElement);
-            this.Hide();
-            Tooltip.instance = this;
-        }
+        super("", InfoBar.ElementID, parent);
+        this.playerResourcesBar = new PlayerResourcesGUI.PlayerResourcesGUI(this.baseElement);
+        this.skillsBar = new SkillsGUI.SkillsGUI(this.baseElement);
     }
-    CalculateTopLeft(tooltipFor) {
-        let objectPos = tooltipFor.offset();
-        let objectWidth = tooltipFor.outerWidth(), objectHeight = tooltipFor.outerHeight();
-        let tooltipWidth = this.baseElement.outerWidth(), tooltipHeight = this.baseElement.outerHeight();
-        objectPos.left += objectWidth / 2 - tooltipWidth / 2;
-        objectPos.top += objectHeight;
-        //adjust left position if tooltip would go out of the screen
-        let bodyWidth = $(document.body).outerWidth(), bodyHeight = $(document.body).outerHeight();
-        console.log(objectPos.left, tooltipWidth, bodyWidth);
-        if (objectPos.left + tooltipWidth > bodyWidth) {
-            objectPos.left = bodyWidth - tooltipWidth;
-        }
-        else if (objectPos.left < 0) {
-            objectPos.left = 0;
-        }
-        //adjust top position if tooltip would go out of the screen
-        if (objectPos.top > bodyHeight) {
-            objectPos.top -= objectHeight + tooltipHeight;
-        }
-        return objectPos;
+    SetUp(player) {
+        this.playerResourcesBar.SetUp(player.resources);
+        this.skillsBar.SetUp(player);
     }
-    SetUp(baseWidth, tooltipFor, getPrimaryInfo, getSecondaryInfo) {
-        this.getPrimaryInfo = getPrimaryInfo;
-        this.getSecondaryInfo = getSecondaryInfo;
-        // initial text and width updates to be able to set the tooltip position
-        this.primaryInformation.Update(this.getPrimaryInfo());
-        this.secondaryInformation.Update(this.getSecondaryInfo());
-        this.baseElement.css("width", baseWidth);
-        this.baseElement.css(this.CalculateTopLeft(tooltipFor));
-    }
-    Update() {
-        if (!this.CanUpdate()) {
-            return;
-        }
-        this.primaryInformation.Update(this.getPrimaryInfo());
-        this.secondaryInformation.Update(this.getSecondaryInfo());
+    Update(player) {
+        this.playerResourcesBar.Update();
+        this.skillsBar.Update(player);
     }
 }
-Tooltip.ElementID = "Tooltip";
-Tooltip.instance = undefined;
+InfoBar.ElementID = "InfoBar";
 /// <reference path="./GUIElement.ts" />
-/// <reference path="./InfoBar.ts" />
 /// <reference path="./tooltip.ts" />
+/// <reference path="./actionsBar.ts" />
+/// <reference path="./infoBar.ts" />
 class GUI extends GUIElement {
     constructor() {
         super("", "GUI", $(document.body));
         if (GUI.instance == undefined) {
             GUI.instance = this;
-            this.infoBar = new InfoBar.InfoBar(this.baseElement);
+            this.infoBar = new InfoBar(this.baseElement);
+            this.actionsBar = new ActionsBar(this.baseElement);
             new Tooltip(this.baseElement);
         }
     }
     SetUp(player) {
         this.infoBar.SetUp(player);
+        this.actionsBar.SetUp();
     }
     Update(player) {
         this.infoBar.Update(player);
+        this.actionsBar.Update();
         Tooltip.instance.Update();
     }
 }
 GUI.instance = undefined;
 GUI.ElementID = "GUI";
-/// <reference path="./player/player.ts" />
+/// <reference path="./game/player.ts" />
+/// <reference path="./game/game.ts" />
 /// <reference path="./GUI/GUI.ts" />
 class Main {
+    get player() {
+        return this.game.player;
+    }
     constructor() {
         if (Main.instance == undefined) {
             Main.instance = this;
-            this.player = new Player();
+            // create game and GUI
+            this.game = new Game();
             this.gui = new GUI();
             // set up GUI
             this.gui.SetUp(this.player);
@@ -583,8 +855,7 @@ class Main {
     }
     Update() {
         let dTime = 0.033;
-        let experience = 100;
-        this.player.Update(experience * dTime);
+        this.game.Update(dTime);
         this.gui.Update(this.player);
     }
 }

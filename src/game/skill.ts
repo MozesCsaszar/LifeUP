@@ -8,7 +8,7 @@ namespace Skill {
     static readonly MultiplierBaseValues = [1.05, 1.05];
     required: number;
     level: number = 0;
-
+    multiplier: number = 1;
     experience: number = 0;
     stage: number;
     constructor(stage: number) {
@@ -16,7 +16,7 @@ namespace Skill {
       this.required = 10;
     }
     GetSkillMultiplier(): number {
-      return SkillStage.MultiplierFunction(this.level, SkillStage.MultiplierBaseValues[this.stage]);
+      return this.multiplier;
     }
     UpdateExperience(experience: number) {
       this.experience += experience;
@@ -30,6 +30,7 @@ namespace Skill {
         this.level += 1;
         this.required = SkillStage.ScalingFunctions[this.stage](this.required, this.level);
         this.experience -= oldRequired;
+        this.multiplier = SkillStage.MultiplierFunction(this.level, SkillStage.MultiplierBaseValues[this.stage]);
       }
       return 0;
     }

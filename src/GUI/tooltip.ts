@@ -1,3 +1,5 @@
+/// <reference path="./common.ts" />
+
 class Tooltip extends CommonGUIs.VerticalBox {
   private static ElementID: string = "Tooltip";
   static instance: Tooltip = undefined;
@@ -29,7 +31,6 @@ class Tooltip extends CommonGUIs.VerticalBox {
     //adjust left position if tooltip would go out of the screen
     let bodyWidth = $(document.body).outerWidth(),
       bodyHeight = $(document.body).outerHeight();
-    console.log(objectPos.left, tooltipWidth, bodyWidth);
     if (objectPos.left + tooltipWidth > bodyWidth) {
       objectPos.left = bodyWidth - tooltipWidth;
     } else if (objectPos.left < 0) {

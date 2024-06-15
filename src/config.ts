@@ -36,10 +36,9 @@ class Config {
     "Fighting",
     "Navigation",
     "Processing",
-    "Extracting",
-    "Producing",
+    "Extraction",
+    "Production",
     "Construction",
-    "Magical",
   ];
 
   static readonly PlayerResourceNames: string[] = ["Health", "Stamina", "Mana"];
