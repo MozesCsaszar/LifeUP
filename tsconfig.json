@@ -5,5 +5,5 @@
     "outFile": "dist/main.js"
   },
   "types": ["jquery", "decimal.js"],
-  "include": ["src/*.ts", "src/game/*.ts", "src/GUI/*.ts"]
+  "include": ["src/*.ts", "src/game/*.ts", "src/GUI/*.ts", "src/eventSystem/*.ts"]
 }

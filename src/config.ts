@@ -1,15 +1,18 @@
 class ColorPalette {
   // color format: (rgb) "0-255,0-255,0-255";
   skillProgFGColors: string[];
-  skillProgBGColor: string;
+  progressLineBGColor: string;
+  actionProgFGColor: string;
   playerResourceColors: { health: string; stamina: string; mana: string };
   constructor(
     skillProgressForegroundColors: string[],
-    skillProgressBackgroundColor: string,
+    actionProgressForegroundColor: string,
+    progressLineBackgroundColor: string,
     playerResourceColors: { health: string; stamina: string; mana: string }
   ) {
     this.skillProgFGColors = skillProgressForegroundColors.map((elem) => `rgb(${elem})`);
-    this.skillProgBGColor = `rgb(${skillProgressBackgroundColor})`;
+    this.actionProgFGColor = `rgb(${actionProgressForegroundColor})`;
+    this.progressLineBGColor = `rgb(${progressLineBackgroundColor})`;
     this.playerResourceColors = playerResourceColors;
     this.playerResourceColors.health = `rgb(${this.playerResourceColors.health})`;
     this.playerResourceColors.stamina = `rgb(${this.playerResourceColors.stamina})`;
@@ -22,7 +25,7 @@ class Config {
   private static readonly NrExponentialDigits = 2;
   static readonly NrStages = 2;
   static readonly ColorPalettes: ColorPalette[] = [
-    new ColorPalette(["185,30,30", "30,185,30"], "20,20,20", {
+    new ColorPalette(["185,30,30", "30,185,30"], "20,120,120", "20,20,20", {
       health: "185,30,30",
       stamina: "30,185,30",
       mana: "30,30,185",
@@ -40,6 +43,8 @@ class Config {
     "Production",
     "Construction",
   ];
+
+  static readonly LogicToGUIEvents: string[] = ["ActionQueueChanged"];
 
   static readonly PlayerResourceNames: string[] = ["Health", "Stamina", "Mana"];
 

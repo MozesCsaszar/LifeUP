@@ -14,13 +14,13 @@ namespace PlayerResourcesGUI {
       this.value = value;
       switch (this.resourceName) {
         case "Health":
-          this.child.SetUp(Config.ColorPalette.playerResourceColors.health, Config.ColorPalette.skillProgBGColor);
+          this.child.SetUp(Config.ColorPalette.playerResourceColors.health, Config.ColorPalette.progressLineBGColor);
           break;
         case "Stamina":
-          this.child.SetUp(Config.ColorPalette.playerResourceColors.stamina, Config.ColorPalette.skillProgBGColor);
+          this.child.SetUp(Config.ColorPalette.playerResourceColors.stamina, Config.ColorPalette.progressLineBGColor);
           break;
         case "Mana":
-          this.child.SetUp(Config.ColorPalette.playerResourceColors.mana, Config.ColorPalette.skillProgBGColor);
+          this.child.SetUp(Config.ColorPalette.playerResourceColors.mana, Config.ColorPalette.progressLineBGColor);
           break;
       }
     }

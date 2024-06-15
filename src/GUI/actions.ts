@@ -54,4 +54,79 @@ namespace ActionsGUI {
       super.Update();
     }
   }
+  class RemoveNow extends CommonGUIBases.TooltipReadyElement<CommonGUIs.Button> {
+    protected static ElementClass: string = "remove-now-button";
+
+    constructor(parent: JQuery<HTMLElement>) {
+      super(new CommonGUIs.Button(parent, RemoveNow.ElementClass));
+      this.child.Update("ⓧ!");
+    }
+    protected GeneratePrimaryText(): string {
+      return "Remove the action from the queue now. You won't get the reward for completing it.";
+    }
+  }
+  class RemoveOnCompletion extends CommonGUIBases.TooltipReadyElement<CommonGUIs.Button> {
+    protected static ElementClass: string = "remove-on-completion-button";
+
+    constructor(parent: JQuery<HTMLElement>) {
+      super(new CommonGUIs.Button(parent, RemoveOnCompletion.ElementClass));
+      this.child.Update("ⓧ");
+    }
+    protected GeneratePrimaryText(): string {
+      return "Remove action from queue on next completion. You will get its reward.";
+    }
+  }
+  class ActionQueueItemBase extends CommonGUIBases.TooltipListItem<Action.ActionInstance> {
+    protected static ElementClass: string = "action-queue-item";
+
+    private nameLabel: CommonGUIs.Label;
+    private nrExecutionsLabel: CommonGUIs.Label;
+    private removeNow: RemoveNow;
+    private removeOnCompletion: RemoveOnCompletion;
+    private progressLine: CommonGUIs.ProgressLine;
+    private index: number;
+    constructor(parent: JQuery<HTMLElement>, index: number) {
+      super(new CommonGUIBases.ListItem<Action.ActionInstance>(parent, "vertical-box"));
+      let horizontalBox = new CommonGUIs.HorizontalBox(this.baseElement);
+      this.nameLabel = new CommonGUIs.Label(horizontalBox.baseElement);
+      this.nrExecutionsLabel = new CommonGUIs.Label(horizontalBox.baseElement);
+      this.removeNow = new RemoveNow(horizontalBox.baseElement);
+      this.removeOnCompletion = new RemoveOnCompletion(horizontalBox.baseElement);
+      this.progressLine = new CommonGUIs.ProgressLine(this.baseElement);
+      this.index = index;
+    }
+    SetUp(element: Action.ActionInstance): void {
+      this.progressLine.SetUp(Config.ColorPalette.actionProgFGColor, Config.ColorPalette.progressLineBGColor);
+      this.item = element;
+      this.nameLabel.Update(element.action.name);
+      this.removeNow.child.OnClick = () => Game.instance.RemoveAction(this.index);
+      this.removeOnCompletion.child.OnClick = () => Game.instance.RemoveActionOnCompletion(this.index);
+    }
+    Update() {
+      if (!this.CanUpdate()) {
+        return;
+      }
+      this.progressLine.Update(this.item.cost, this.item.action.cost);
+      this.nrExecutionsLabel.Update("× " + this.item.nrExecutions);
+    }
+  }
+  export class ActionQueueGUI extends CommonGUIBases.List<ActionQueueItemBase, Action.ActionInstance> {
+    protected static ElementID: string = "ActionQueue";
+
+    constructor(parent: JQuery<HTMLElement>) {
+      super(parent, "", ActionQueueGUI.ElementID);
+      this.listItems = Array.from({ length: 10 }, (_, i) => i).map(
+        (_, i) => new ActionQueueItemBase(this._baseElement, i)
+      );
+    }
+    SetUp(actions: Action.ActionInstance[]) {
+      super.SetUp(actions);
+    }
+    Update() {
+      super.Update();
+      if (Main.instance.eventSystem.EventHappened("ActionQueueChanged")) {
+        this.Refresh();
+      }
+    }
+  }
 }

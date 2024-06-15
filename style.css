@@ -95,6 +95,13 @@ td :last-child {
   flex: 1 1 15%;
 }
 
+#ActionQueue {
+  flex: 0 0 30%;
+}
+#ActionQueue > .list-item {
+  max-height: 5%;
+}
+
 .skill-container {
   margin: 1px;
 }

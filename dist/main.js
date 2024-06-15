@@ -1,7 +1,8 @@
 class ColorPalette {
-    constructor(skillProgressForegroundColors, skillProgressBackgroundColor, playerResourceColors) {
+    constructor(skillProgressForegroundColors, actionProgressForegroundColor, progressLineBackgroundColor, playerResourceColors) {
         this.skillProgFGColors = skillProgressForegroundColors.map((elem) => `rgb(${elem})`);
-        this.skillProgBGColor = `rgb(${skillProgressBackgroundColor})`;
+        this.actionProgFGColor = `rgb(${actionProgressForegroundColor})`;
+        this.progressLineBGColor = `rgb(${progressLineBackgroundColor})`;
         this.playerResourceColors = playerResourceColors;
         this.playerResourceColors.health = `rgb(${this.playerResourceColors.health})`;
         this.playerResourceColors.stamina = `rgb(${this.playerResourceColors.stamina})`;
@@ -41,7 +42,7 @@ Config.NrSignificantDigits = 4;
 Config.NrExponentialDigits = 2;
 Config.NrStages = 2;
 Config.ColorPalettes = [
-    new ColorPalette(["185,30,30", "30,185,30"], "20,20,20", {
+    new ColorPalette(["185,30,30", "30,185,30"], "20,120,120", "20,20,20", {
         health: "185,30,30",
         stamina: "30,185,30",
         mana: "30,30,185",
@@ -59,6 +60,7 @@ Config.SkillNames = [
     "Production",
     "Construction",
 ];
+Config.LogicToGUIEvents = ["ActionQueueChanged"];
 Config.PlayerResourceNames = ["Health", "Stamina", "Mana"];
 var Skill;
 (function (Skill_1) {
@@ -189,12 +191,25 @@ class Game {
     }
     AddActionToBack(action) {
         this.actionQueue.push(new Action.ActionInstance(action));
+        Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
     }
     AddActionToFront(action) {
         this.actionQueue.unshift(new Action.ActionInstance(action));
+        Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
     }
     RemoveAction(index) {
         this.actionQueue.splice(index, 1);
+        Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+    }
+    RemoveActionOnCompletion(index) {
+        this.actionQueue[index].nrExecutions = 1;
+        Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+    }
+    RemoveFirstIfDone() {
+        if (this.actionQueue[0].nrExecutions == 0) {
+            this.actionQueue.shift();
+            Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+        }
     }
     Update(dTime) {
         if (!this.paused) {
@@ -202,14 +217,10 @@ class Game {
             this.player.Update(dTime);
             // do actions while you still have time left
             let timeLeft = this.actionQueue[0].Update(dTime, this.player);
-            if (this.actionQueue[0].nrExecutions == 0) {
-                this.actionQueue.shift();
-            }
+            this.RemoveFirstIfDone();
             while (timeLeft > 0 && !this.paused) {
                 timeLeft = this.actionQueue[0].Update(dTime, this.player);
-                if (this.actionQueue[0].nrExecutions == 0) {
-                    this.actionQueue.shift();
-                }
+                this.RemoveFirstIfDone();
             }
         }
     }
@@ -220,6 +231,32 @@ class Game {
     }
 }
 Game.instance = undefined;
+class EventSystem {
+    constructor() {
+        this.events = new Map();
+        if (EventSystem.instance == undefined) {
+            EventSystem.instance = this;
+            Config.LogicToGUIEvents.forEach((event) => {
+                this.events.set(event, false);
+            });
+        }
+    }
+    // reset event triggers
+    Update() {
+        for (let key in this.events.keys()) {
+            this.events.set(key, false);
+        }
+    }
+    // set an event as triggered this round
+    TriggerEvent(eventName) {
+        this.events.set(eventName, true);
+    }
+    // check if an event happened
+    EventHappened(eventName) {
+        return this.events.get(eventName);
+    }
+}
+EventSystem.instance = undefined;
 /*
 GUIElement Lifecycle:
   -constructor <- create all components needed and set static style
@@ -568,6 +605,70 @@ var ActionsGUI;
     }
     AvailableActionsGUI.ElementID = "AvailableActions";
     ActionsGUI.AvailableActionsGUI = AvailableActionsGUI;
+    class RemoveNow extends CommonGUIBases.TooltipReadyElement {
+        constructor(parent) {
+            super(new CommonGUIs.Button(parent, RemoveNow.ElementClass));
+            this.child.Update("ⓧ!");
+        }
+        GeneratePrimaryText() {
+            return "Remove the action from the queue now. You won't get the reward for completing it.";
+        }
+    }
+    RemoveNow.ElementClass = "remove-now-button";
+    class RemoveOnCompletion extends CommonGUIBases.TooltipReadyElement {
+        constructor(parent) {
+            super(new CommonGUIs.Button(parent, RemoveOnCompletion.ElementClass));
+            this.child.Update("ⓧ");
+        }
+        GeneratePrimaryText() {
+            return "Remove action from queue on next completion. You will get its reward.";
+        }
+    }
+    RemoveOnCompletion.ElementClass = "remove-on-completion-button";
+    class ActionQueueItemBase extends CommonGUIBases.TooltipListItem {
+        constructor(parent, index) {
+            super(new CommonGUIBases.ListItem(parent, "vertical-box"));
+            let horizontalBox = new CommonGUIs.HorizontalBox(this.baseElement);
+            this.nameLabel = new CommonGUIs.Label(horizontalBox.baseElement);
+            this.nrExecutionsLabel = new CommonGUIs.Label(horizontalBox.baseElement);
+            this.removeNow = new RemoveNow(horizontalBox.baseElement);
+            this.removeOnCompletion = new RemoveOnCompletion(horizontalBox.baseElement);
+            this.progressLine = new CommonGUIs.ProgressLine(this.baseElement);
+            this.index = index;
+        }
+        SetUp(element) {
+            this.progressLine.SetUp(Config.ColorPalette.actionProgFGColor, Config.ColorPalette.progressLineBGColor);
+            this.item = element;
+            this.nameLabel.Update(element.action.name);
+            this.removeNow.child.OnClick = () => Game.instance.RemoveAction(this.index);
+            this.removeOnCompletion.child.OnClick = () => Game.instance.RemoveActionOnCompletion(this.index);
+        }
+        Update() {
+            if (!this.CanUpdate()) {
+                return;
+            }
+            this.progressLine.Update(this.item.cost, this.item.action.cost);
+            this.nrExecutionsLabel.Update("× " + this.item.nrExecutions);
+        }
+    }
+    ActionQueueItemBase.ElementClass = "action-queue-item";
+    class ActionQueueGUI extends CommonGUIBases.List {
+        constructor(parent) {
+            super(parent, "", ActionQueueGUI.ElementID);
+            this.listItems = Array.from({ length: 10 }, (_, i) => i).map((_, i) => new ActionQueueItemBase(this._baseElement, i));
+        }
+        SetUp(actions) {
+            super.SetUp(actions);
+        }
+        Update() {
+            super.Update();
+            if (Main.instance.eventSystem.EventHappened("ActionQueueChanged")) {
+                this.Refresh();
+            }
+        }
+    }
+    ActionQueueGUI.ElementID = "ActionQueue";
+    ActionsGUI.ActionQueueGUI = ActionQueueGUI;
 })(ActionsGUI || (ActionsGUI = {}));
 var Action;
 (function (Action_1) {
@@ -621,12 +722,15 @@ class ActionsBar extends GUIElement {
     constructor(parent) {
         super("", ActionsBar.ElementID, parent);
         this.availableActions = new ActionsGUI.AvailableActionsGUI(this.baseElement);
+        this.actionQueue = new ActionsGUI.ActionQueueGUI(this.baseElement);
     }
     SetUp() {
         this.availableActions.SetUp(Array.from(Action.actions.values()));
+        this.actionQueue.SetUp(Game.instance.actionQueue);
     }
     Update() {
         this.availableActions.Update();
+        this.actionQueue.Update();
     }
 }
 ActionsBar.ElementID = "ActionsBar";
@@ -642,13 +746,13 @@ var PlayerResourcesGUI;
             this.value = value;
             switch (this.resourceName) {
                 case "Health":
-                    this.child.SetUp(Config.ColorPalette.playerResourceColors.health, Config.ColorPalette.skillProgBGColor);
+                    this.child.SetUp(Config.ColorPalette.playerResourceColors.health, Config.ColorPalette.progressLineBGColor);
                     break;
                 case "Stamina":
-                    this.child.SetUp(Config.ColorPalette.playerResourceColors.stamina, Config.ColorPalette.skillProgBGColor);
+                    this.child.SetUp(Config.ColorPalette.playerResourceColors.stamina, Config.ColorPalette.progressLineBGColor);
                     break;
                 case "Mana":
-                    this.child.SetUp(Config.ColorPalette.playerResourceColors.mana, Config.ColorPalette.skillProgBGColor);
+                    this.child.SetUp(Config.ColorPalette.playerResourceColors.mana, Config.ColorPalette.progressLineBGColor);
                     break;
             }
         }
@@ -714,7 +818,7 @@ var SkillsGUI;
                 let extraClass = i == 0 ? "" : " no-border-top";
                 let newProgressLine = new CommonGUIs.ProgressLine(this.baseElement, extraClass);
                 this.progressLines.push(newProgressLine);
-                newProgressLine.SetUp(Config.ColorPalette.skillProgFGColors[i], Config.ColorPalette.skillProgBGColor);
+                newProgressLine.SetUp(Config.ColorPalette.skillProgFGColors[i], Config.ColorPalette.progressLineBGColor);
             }
         }
         FormatMultiplier(multiplier) {
@@ -836,6 +940,7 @@ GUI.instance = undefined;
 GUI.ElementID = "GUI";
 /// <reference path="./game/player.ts" />
 /// <reference path="./game/game.ts" />
+/// <reference path="./eventSystem/eventSystem.ts" />
 /// <reference path="./GUI/GUI.ts" />
 class Main {
     get player() {
@@ -847,6 +952,7 @@ class Main {
             // create game and GUI
             this.game = new Game();
             this.gui = new GUI();
+            this.eventSystem = new EventSystem();
             // set up GUI
             this.gui.SetUp(this.player);
             // start main loop
@@ -857,6 +963,7 @@ class Main {
         let dTime = 0.033;
         this.game.Update(dTime);
         this.gui.Update(this.player);
+        this.eventSystem.Update();
     }
 }
 Main.instance = undefined;

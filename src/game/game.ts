@@ -16,13 +16,27 @@ class Game {
   }
   AddActionToBack(action: Action.Action) {
     this.actionQueue.push(new Action.ActionInstance(action));
+    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
   }
   AddActionToFront(action: Action.Action) {
     this.actionQueue.unshift(new Action.ActionInstance(action));
+    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
   }
   RemoveAction(index: number) {
     this.actionQueue.splice(index, 1);
+    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
   }
+  RemoveActionOnCompletion(index: number) {
+    this.actionQueue[index].nrExecutions = 1;
+    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+  }
+  RemoveFirstIfDone() {
+    if (this.actionQueue[0].nrExecutions == 0) {
+      this.actionQueue.shift();
+      Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+    }
+  }
+
   Update(dTime: number) {
     if (!this.paused) {
       this.PrintQueue();
@@ -30,14 +44,10 @@ class Game {
 
       // do actions while you still have time left
       let timeLeft: number = this.actionQueue[0].Update(dTime, this.player);
-      if (this.actionQueue[0].nrExecutions == 0) {
-        this.actionQueue.shift();
-      }
+      this.RemoveFirstIfDone();
       while (timeLeft > 0 && !this.paused) {
         timeLeft = this.actionQueue[0].Update(dTime, this.player);
-        if (this.actionQueue[0].nrExecutions == 0) {
-          this.actionQueue.shift();
-        }
+        this.RemoveFirstIfDone();
       }
     }
   }

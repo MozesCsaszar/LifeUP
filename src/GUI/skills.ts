@@ -21,7 +21,7 @@ namespace SkillsGUI {
         let newProgressLine = new CommonGUIs.ProgressLine(this.baseElement, extraClass);
 
         this.progressLines.push(newProgressLine);
-        newProgressLine.SetUp(Config.ColorPalette.skillProgFGColors[i], Config.ColorPalette.skillProgBGColor);
+        newProgressLine.SetUp(Config.ColorPalette.skillProgFGColors[i], Config.ColorPalette.progressLineBGColor);
       }
     }
     private FormatMultiplier(multiplier: number): string {

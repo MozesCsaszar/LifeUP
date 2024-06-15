@@ -1,12 +1,13 @@
 /// <reference path="./game/player.ts" />
 /// <reference path="./game/game.ts" />
-
+/// <reference path="./eventSystem/eventSystem.ts" />
 /// <reference path="./GUI/GUI.ts" />
 
 class Main {
   static instance: Main = undefined;
   game: Game;
   gui: GUI;
+  eventSystem: EventSystem;
   time: number;
   get player() {
     return this.game.player;
@@ -18,6 +19,7 @@ class Main {
       // create game and GUI
       this.game = new Game();
       this.gui = new GUI();
+      this.eventSystem = new EventSystem();
 
       // set up GUI
       this.gui.SetUp(this.player);
@@ -31,6 +33,7 @@ class Main {
     let dTime: number = 0.033;
     this.game.Update(dTime);
     this.gui.Update(this.player);
+    this.eventSystem.Update();
   }
 }
 
