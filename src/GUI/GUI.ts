@@ -1,10 +1,12 @@
-/// <reference path="./GUIElement.ts" />
-/// <reference path="./tooltip.ts" />
-/// <reference path="./actionsBar.ts" />
-/// <reference path="./infoBar.ts" />
+import { InstanceExistsError } from "../utils/errors";
+import { GUIElement } from "./GUIElement";
+import { Player } from "../game/player";
+import { Tooltip } from "../singletons/tooltipGUI";
+import { InfoBar } from "./infoBar";
+import { ActionsBar } from "./actionsBar";
 
-class GUI extends GUIElement {
-  static instance: GUI = undefined;
+export class GUI extends GUIElement {
+  static instance: GUI;
   static ElementID: string = "GUI";
   infoBar: InfoBar;
   actionsBar: ActionsBar;
@@ -12,10 +14,12 @@ class GUI extends GUIElement {
     super("", "GUI", $(document.body));
     if (GUI.instance == undefined) {
       GUI.instance = this;
-      this.infoBar = new InfoBar(this.baseElement);
-      this.actionsBar = new ActionsBar(this.baseElement);
+      this.infoBar = new InfoBar(this.baseElement!);
+      this.actionsBar = new ActionsBar(this.baseElement!);
 
-      new Tooltip(this.baseElement);
+      new Tooltip(this.baseElement!);
+    } else {
+      throw new InstanceExistsError("GUI");
     }
   }
 

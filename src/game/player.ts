@@ -1,7 +1,8 @@
-/// <reference path="./skill.ts" />
-/// <reference path="./inventory.ts" />
+import { Skill } from "./skill";
+import { Inventory } from "./inventory";
+import { Config } from "../config";
 
-class BoundedVar {
+export class BoundedVar {
   private _val: number;
   private _min: number;
   private _max: number;
@@ -36,7 +37,7 @@ class BoundedVar {
   }
 }
 
-class PlayerResourceChange {
+export class PlayerResourceChange {
   health: number;
   stamina: number;
   mana: number;
@@ -47,7 +48,7 @@ class PlayerResourceChange {
   }
 }
 
-class PlayerResources {
+export class PlayerResources {
   health: BoundedVar;
   stamina: BoundedVar;
   mana: BoundedVar;
@@ -65,14 +66,14 @@ class PlayerResources {
   }
 }
 
-class Player {
-  skills: Map<string, Skill.Skill> = new Map<string, Skill.Skill>();
+export class Player {
+  skills: Map<string, Skill> = new Map<string, Skill>();
   resources: PlayerResources;
   inventory: Inventory;
 
   constructor() {
     Config.SkillNames.forEach((skillName) => {
-      this.skills.set(skillName, new Skill.Skill(skillName));
+      this.skills.set(skillName, new Skill(skillName));
     });
     this.resources = new PlayerResources();
     this.inventory = new Inventory();

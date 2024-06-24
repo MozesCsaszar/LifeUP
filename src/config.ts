@@ -1,4 +1,4 @@
-class ColorPalette {
+export class ColorPalette {
   // color format: (rgb) "0-255,0-255,0-255";
   skillProgFGColors: string[];
   progressLineBGColor: string;
@@ -20,7 +20,7 @@ class ColorPalette {
   }
 }
 
-class Config {
+export class Config {
   private static readonly NrSignificantDigits = 4;
   private static readonly NrExponentialDigits = 2;
   static readonly NrStages = 2;

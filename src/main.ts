@@ -1,40 +1,37 @@
-/// <reference path="./game/player.ts" />
-/// <reference path="./game/game.ts" />
-/// <reference path="./eventSystem/eventSystem.ts" />
-/// <reference path="./GUI/GUI.ts" />
+import { Game } from "./game/game";
+import { EventSystem } from "./singletons/eventSystem";
+import { InstanceExistsError } from "./utils/errors";
+import { GUI } from "./GUI/GUI";
 
 class Main {
-  static instance: Main = undefined;
-  game: Game;
+  static instance: Main;
   gui: GUI;
-  eventSystem: EventSystem;
-  time: number;
-  get player() {
-    return Game.player;
-  }
+  // time: number;
   constructor() {
     if (Main.instance == undefined) {
       Main.instance = this;
 
-      // create game and GUI
-      this.game = new Game();
+      // create game, GUI and EventSystem
+      new Game();
       this.gui = new GUI();
-      this.eventSystem = new EventSystem();
+      new EventSystem();
 
       // set up GUI
-      this.gui.SetUp(this.player);
+      this.gui.SetUp(Game.player);
 
       // start main loop
       setInterval(() => this.Update(), 33);
+    } else {
+      throw new InstanceExistsError("Main");
     }
   }
 
   Update() {
     let dTime: number = 0.033;
-    this.game.Update(dTime);
-    this.gui.Update(this.player);
-    this.eventSystem.Update();
+    Game.Update(dTime);
+    this.gui.Update(Game.player);
+    EventSystem.Update();
   }
 }
 
-let main = new Main();
+new Main();

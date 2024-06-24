@@ -1,16 +1,17 @@
-/// <reference path="./GUIElement.ts" />
-/// <reference path="./playerResources.ts" />
-/// <reference path="./skills.ts" />
+import { GUIElement } from "./GUIElement";
+import { Player } from "../game/player";
+import { SkillsGUI } from "./skills";
+import { PlayerResourcesGUI } from "./playerResources";
 
-class InfoBar extends GUIElement {
+export class InfoBar extends GUIElement {
   private static readonly ElementID: string = "InfoBar";
-  skillsBar: SkillsGUI.SkillsGUI;
-  playerResourcesBar: PlayerResourcesGUI.PlayerResourcesGUI;
+  skillsBar: SkillsGUI;
+  playerResourcesBar: PlayerResourcesGUI;
   constructor(parent: JQuery<HTMLElement>) {
     super("", InfoBar.ElementID, parent);
 
-    this.playerResourcesBar = new PlayerResourcesGUI.PlayerResourcesGUI(this.baseElement);
-    this.skillsBar = new SkillsGUI.SkillsGUI(this.baseElement);
+    this.playerResourcesBar = new PlayerResourcesGUI(this.baseElement!);
+    this.skillsBar = new SkillsGUI(this.baseElement!);
   }
 
   SetUp(player: Player) {

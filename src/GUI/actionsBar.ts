@@ -1,22 +1,25 @@
-/// <reference path="./actions.ts" />
-/// <reference path="./inventory.ts" />
-/// <reference path="../game/action.ts" />
+import { GUIElement } from "./GUIElement";
+import { AvailableActionsGUI } from "./actions";
+import { InventoryGUI } from "./inventory";
+import { ActionQueueGUI } from "./actions";
+import { actions } from "../game/action";
+import { Game } from "../game/game";
 
-class ActionsBar extends GUIElement {
+export class ActionsBar extends GUIElement {
   protected static ElementID: string = "ActionsBar";
-  availableActions: ActionsGUI.AvailableActionsGUI;
-  inventory: InventoryGUI.InventoryGUI;
-  actionQueue: ActionsGUI.ActionQueueGUI;
+  availableActions: AvailableActionsGUI;
+  inventory: InventoryGUI;
+  actionQueue: ActionQueueGUI;
   constructor(parent: JQuery<HTMLElement>) {
     super("", ActionsBar.ElementID, parent);
-    this.availableActions = new ActionsGUI.AvailableActionsGUI(this.baseElement);
-    this.inventory = new InventoryGUI.InventoryGUI(this.baseElement);
-    this.actionQueue = new ActionsGUI.ActionQueueGUI(this.baseElement);
+    this.availableActions = new AvailableActionsGUI(this.baseElement!);
+    this.inventory = new InventoryGUI(this.baseElement!);
+    this.actionQueue = new ActionQueueGUI(this.baseElement!);
   }
   SetUp() {
-    this.availableActions.SetUp(Array.from(Action.actions.values()));
+    this.availableActions.SetUp(Array.from(actions.values()));
     this.inventory.SetUp(Game.player.inventory.GetNonzeroItemData());
-    this.actionQueue.SetUp(Game.instance.actionQueue);
+    this.actionQueue.SetUp(Game.actionQueue);
   }
   Update() {
     this.availableActions.Update();

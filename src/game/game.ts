@@ -1,12 +1,17 @@
-class Game {
-  static instance: Game = undefined;
+import { InstanceExistsError } from "../utils/errors";
+import { Player } from "./player";
+import { ActionInstance, Action, AddToInventory } from "./action";
+import { EventSystem } from "../singletons/eventSystem";
+
+export class Game {
+  static instance: Game;
 
   private _player: Player;
-  actionQueue: Action.ActionInstance[] = [];
-  get paused(): boolean {
+  static actionQueue: ActionInstance[] = [];
+  static get paused(): boolean {
     return this.actionQueue.length == 0;
   }
-  static get player() {
+  static get player(): Player {
     return this.instance._player;
   }
 
@@ -15,48 +20,50 @@ class Game {
       Game.instance = this;
 
       this._player = new Player();
+    } else {
+      throw new InstanceExistsError("Game");
     }
   }
-  GetNrExecutions(action: Action.Action): number {
+  static GetNrExecutions(action: Action): number {
     let nrExecutions: number = 1;
-    if (action.outcome instanceof Action.AddToInventory) {
+    if (action.outcome instanceof AddToInventory) {
       let resourceName: string = action.outcome.resourceName;
       nrExecutions = Game.player.inventory.SpaceLeft(resourceName);
     }
     return nrExecutions;
   }
-  AddActionToBack(action: Action.Action) {
-    this.actionQueue.push(new Action.ActionInstance(action, this.GetNrExecutions(action)));
-    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+  static AddActionToBack(action: Action) {
+    this.actionQueue.push(new ActionInstance(action, this.GetNrExecutions(action)));
+    EventSystem.TriggerEvent("ActionQueueChanged");
   }
-  AddActionToFront(action: Action.Action) {
-    this.actionQueue.unshift(new Action.ActionInstance(action, this.GetNrExecutions(action)));
-    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+  static AddActionToFront(action: Action) {
+    this.actionQueue.unshift(new ActionInstance(action, this.GetNrExecutions(action)));
+    EventSystem.TriggerEvent("ActionQueueChanged");
   }
-  RemoveAction(index: number) {
+  static RemoveAction(index: number) {
     this.actionQueue.splice(index, 1);
-    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+    EventSystem.TriggerEvent("ActionQueueChanged");
   }
-  RemoveActionOnCompletion(index: number) {
+  static RemoveActionOnCompletion(index: number) {
     this.actionQueue[index].nrExecutions = 1;
-    Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+    EventSystem.TriggerEvent("ActionQueueChanged");
   }
-  RemoveFirstIfDone() {
+  static RemoveFirstIfDone() {
     if (this.actionQueue[0].nrExecutions == 0) {
       this.actionQueue.shift();
-      Main.instance.eventSystem.TriggerEvent("ActionQueueChanged");
+      EventSystem.TriggerEvent("ActionQueueChanged");
     }
   }
 
-  Update(dTime: number) {
+  static Update(dTime: number) {
     if (!this.paused) {
-      this._player.Update(dTime);
+      this.player.Update(dTime);
 
       // do actions while you still have time left
-      let timeLeft: number = this.actionQueue[0].Update(dTime, this._player);
+      let timeLeft: number = this.actionQueue[0].Update(dTime, this.player);
       this.RemoveFirstIfDone();
       while (timeLeft > 0 && !this.paused) {
-        timeLeft = this.actionQueue[0].Update(dTime, this._player);
+        timeLeft = this.actionQueue[0].Update(dTime, this.player);
         this.RemoveFirstIfDone();
       }
     }

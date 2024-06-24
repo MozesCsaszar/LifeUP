@@ -1,11 +1,17 @@
 {
   "devDependencies": {
     "@types/jquery": "^3.5.30",
-    "typescript": "^5.3.3"
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.2",
+    "webpack": "^5.92.1",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@types/decimal.js": "^7.4.0",
     "decimal.js": "^10.4.3",
     "jquery": "^3.7.1"
+  },
+  "scripts": {
+    "build": "webpack"
   }
 }

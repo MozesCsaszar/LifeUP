@@ -7,10 +7,10 @@ GUIElement Lifecycle:
   -Hide <- hide base element
 */
 
-class GUIElement {
-  protected _baseElement: JQuery<HTMLElement>;
+export class GUIElement {
+  protected _baseElement: JQuery<HTMLElement> | undefined = undefined;
   constructor(classes?: string, id?: string, parent?: JQuery<HTMLElement>, center?: boolean);
-  constructor(classes: string, id: string, parent: JQuery<HTMLElement>, center: boolean = false) {
+  constructor(classes: string, id: string, parent: JQuery<HTMLElement> | undefined, center: boolean = false) {
     if (parent != undefined)
       this._baseElement = this.CreateObject(center ? `${classes} center-text` : classes, id, parent);
   }
@@ -24,16 +24,16 @@ class GUIElement {
   }
 
   CanUpdate(): boolean {
-    if (this._baseElement.is(":hidden")) {
+    if (this._baseElement?.is(":hidden")) {
       return false;
     }
     return true;
   }
 
   Show() {
-    this._baseElement.show();
+    this._baseElement?.show();
   }
   Hide() {
-    this._baseElement.hide();
+    this._baseElement?.hide();
   }
 }
